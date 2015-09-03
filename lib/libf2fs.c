@@ -14,7 +14,11 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifdef __linux__
 #include <mntent.h>
+#include <linux/hdreg.h>
+#include <linux/limits.h>
+#endif
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
@@ -22,8 +26,6 @@
 #ifndef WITH_ANDROID
 #include <scsi/sg.h>
 #endif
-#include <linux/hdreg.h>
-#include <linux/limits.h>
 
 #include <f2fs_fs.h>
 
@@ -578,6 +580,7 @@ void f2fs_init_configuration(void)
 
 static int is_mounted(const char *mpt, const char *device)
 {
+#ifdef __linux__
 	FILE *file = NULL;
 	struct mntent *mnt = NULL;
 
@@ -596,6 +599,10 @@ static int is_mounted(const char *mpt, const char *device)
 	}
 	endmntent(file);
 	return mnt ? 1 : 0;
+#else
+	/* TODO */
+	return 0;
+#endif
 }
 
 int f2fs_dev_is_umounted(char *path)

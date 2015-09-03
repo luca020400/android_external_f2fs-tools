@@ -20,10 +20,8 @@
 
 #include "f2fs_fs.h"
 
-#ifdef HAVE_LINUX_FS_H
+#if defined(__linux__)
 #include <linux/fs.h>
-#endif
-#ifdef HAVE_LINUX_FALLOC_H
 #include <linux/falloc.h>
 #endif
 
