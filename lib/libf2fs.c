@@ -573,6 +573,7 @@ void f2fs_init_configuration(void)
 	c.trim = 1;
 	c.ro = 0;
 	c.kd = -1;
+	c.bytes_reserved = 0;
 }
 
 static int is_mounted(const char *mpt, const char *device)
@@ -710,7 +711,20 @@ int get_device_info(int i)
 	}
 
 	if (S_ISREG(stat_buf.st_mode)) {
-		dev->total_sectors = stat_buf.st_size / dev->sector_size;
+		if (c.bytes_reserved >= stat_buf.st_size) {
+			MSG(0, "\n\Error: reserved bytes (%u) is bigger than the device size (%u bytes)\n",
+			    (unsigned int) c.bytes_reserved,
+			    (unsigned int) stat_buf.st_size);
+			return -1;
+		}
+
+		dev->total_sectors = (stat_buf.st_size - c.bytes_reserved) / dev->sector_size;
+
+		if (c.bytes_reserved) {
+			MSG(0, "Info: Reserved %u bytes ", (unsigned int) c.bytes_reserved);
+			MSG(0, "from device of size %u sectors\n",
+			    (unsigned int) (stat_buf.st_size / c.sector_size));
+                }
 	} else if (S_ISBLK(stat_buf.st_mode)) {
 		if (ioctl(fd, BLKSSZGET, &sector_size) < 0)
 			MSG(0, "\tError: Using the default sector size\n");
@@ -728,7 +742,27 @@ int get_device_info(int i)
 		}
 		dev->total_sectors = total_sectors;
 #endif
-		dev->total_sectors /= dev->sector_size;
+
+		if (c.bytes_reserved) {
+			unsigned int reserved_sectors;
+
+			reserved_sectors = c.bytes_reserved / dev->sector_size;
+			if (c.bytes_reserved % c.sector_size) {reserved_sectors++;}
+
+			if (reserved_sectors >= dev->total_sectors) {
+				MSG(0, "\n\Error: reserved bytes (%u sectors) is bigger than the device size (%u sectors)\n",
+				    (unsigned int) reserved_sectors,
+				    (unsigned int) c.total_sectors);
+				return -1;
+			}
+
+			MSG(0, "\n");
+			MSG(0, "Info: Reserved %u sectors ", (unsigned int) reserved_sectors);
+			MSG(0, "from device of size %u sectors\n",
+			    (unsigned int) c.total_sectors);
+
+			dev->total_sectors -= reserved_sectors;
+		}
 
 		if (ioctl(fd, HDIO_GETGEO, &geom) < 0)
 			c.start_sector = 0;
